@@ -1,12 +1,11 @@
 import { type UUID, randomUUID } from "crypto";
-import { WebSocketServer, type WebSocket } from "ws";
+import { WebSocketServer } from "ws";
 
 const wss = new WebSocketServer({ port: 9000 });
-
 interface Users {
   [index: UUID]: {
     username?: string;
-    webSocket?: WebSocket | null;
+    online: boolean;
     state?: {
       X: number;
       Y: number;
@@ -14,6 +13,12 @@ interface Users {
   };
 }
 const users: Users = {};
+
+function broadcast(wss: WebSocketServer): void {
+  wss.clients.forEach((client) => {
+    client.send(JSON.stringify(users));
+  });
+}
 
 wss.on("connection", (ws, req) => {
   ws.on("error", console.error);
@@ -27,7 +32,7 @@ wss.on("connection", (ws, req) => {
 
   users[uuid] = {
     username: un as string,
-    webSocket: ws,
+    online: true,
     state: {
       X: 0,
       Y: 0,
@@ -41,9 +46,10 @@ wss.on("connection", (ws, req) => {
 
   ws.on("close", () => {
     if (user !== undefined) {
-      delete user.webSocket;
+      user.online = false;
     }
+    broadcast(wss);
   });
 
-  ws.send("something");
+  broadcast(wss);
 });
